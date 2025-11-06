@@ -3,3 +3,6 @@ uvicorn
 ollama
 python-dotenv
 requests
+streamlit
+pandas
+plotly
