@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: rag_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+      - ./data/models:/app/models
+      - ./data/vector_store:/app/vector_store
+      - ./data/media:/app/media
+    environment:
+      - DEBUG=True
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_MODEL_TYPE=gpt4all
+    restart: unless-stopped
+
+  celery:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag_celery
+    command: celery -A rag_backend worker --loglevel=info
+    depends_on:
+      - redis
+      - backend
+    volumes:
+      - ./backend:/app
+      - ./data/models:/app/models
+      - ./data/vector_store:/app/vector_store
+    environment:
+      - DEBUG=True
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_MODEL_TYPE=gpt4all
+    restart: unless-stopped
+
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rag_frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    environment:
+      - API_BASE_URL=http://backend:8000/api
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  app_data:
